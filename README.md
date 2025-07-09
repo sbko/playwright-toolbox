@@ -16,13 +16,17 @@ This image solves the compatibility issue where Playwright officially supports o
 1. Pull the image from GitHub Container Registry:
 
 ```bash
+# Latest version
+podman pull ghcr.io/sbko/playwright-toolbox:latest
+
+# Or specific version (e.g., 1.53.2)
 podman pull ghcr.io/sbko/playwright-toolbox:1.53.2
 ```
 
 2. Create a toolbox container using the Ubuntu-based image:
 
 ```bash
-toolbox create playwright --image ghcr.io/sbko/playwright-toolbox:1.53.2
+toolbox create playwright --image ghcr.io/sbko/playwright-toolbox:latest
 ```
 
 3. Configure Claude Code MCP to use Playwright through the toolbox:
@@ -41,7 +45,7 @@ claude mcp add playwright -s user -- toolbox run -c playwright npx @playwright/m
 
 - Ubuntu 22.04 base image
 - Node.js v22.17.0 LTS
-- Playwright v1.53.2 with Chrome browser
+- Latest Playwright with Chrome browser
 - All necessary dependencies for browser automation
 
 ## Building Locally
@@ -52,4 +56,8 @@ docker build -t playwright-toolbox .
 
 ## Automated Builds
 
-This image is automatically built and pushed to `ghcr.io` on every push to the main branch.
+This image is automatically built and pushed to `ghcr.io` on every push to the main branch. Images are tagged with:
+- `latest` - Always points to the most recent build
+- `<version>` - Specific Playwright version (e.g., `1.53.2`, `1.54.0`)
+
+New versions are automatically detected and built when Playwright releases updates.

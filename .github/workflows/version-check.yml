@@ -10,63 +10,46 @@ jobs:
   check-version:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      actions: write
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '22'
-    
-    - name: Get current version from README
-      id: current-version
-      run: |
-        CURRENT_VERSION=$(grep -o 'Playwright v[0-9.]*' README.md | cut -d'v' -f2)
-        echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
     
     - name: Get latest Playwright version
       id: latest-version
       run: |
         LATEST_VERSION=$(npm view @playwright/test version)
         echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
+        echo "Latest Playwright version: $LATEST_VERSION"
     
-    - name: Compare versions
-      id: compare
+    - name: Check if image exists
+      id: image-check
       run: |
-        if [ "${{ steps.current-version.outputs.current }}" != "${{ steps.latest-version.outputs.latest }}" ]; then
-          echo "update_needed=true" >> $GITHUB_OUTPUT
-          echo "New version available: ${{ steps.latest-version.outputs.latest }} (current: ${{ steps.current-version.outputs.current }})"
+        # Check if image with this version already exists
+        IMAGE_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" \
+          "https://ghcr.io/v2/${{ github.repository }}/manifests/${{ steps.latest-version.outputs.latest }}")
+        
+        if [ "$IMAGE_EXISTS" = "200" ]; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Image for version ${{ steps.latest-version.outputs.latest }} already exists"
         else
-          echo "update_needed=false" >> $GITHUB_OUTPUT
-          echo "Already on latest version: ${{ steps.current-version.outputs.current }}"
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Image for version ${{ steps.latest-version.outputs.latest }} does not exist - build needed"
         fi
     
-    - name: Create Pull Request
-      if: steps.compare.outputs.update_needed == 'true'
-      uses: peter-evans/create-pull-request@v5
+    - name: Trigger Docker build
+      if: steps.image-check.outputs.exists == 'false'
+      uses: actions/github-script@v7
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        commit-message: "Update Playwright to v${{ steps.latest-version.outputs.latest }}"
-        title: "Update Playwright to v${{ steps.latest-version.outputs.latest }}"
-        body: |
-          ## Playwright Version Update
+        script: |
+          await github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'docker-build.yml',
+            ref: 'main'
+          });
           
-          This PR updates Playwright from v${{ steps.current-version.outputs.current }} to v${{ steps.latest-version.outputs.latest }}.
-          
-          ### Changes
-          - Updated README.md version reference
-          - Docker image will automatically use latest version on next build
-          
-          ### Verification
-          - [ ] Docker build succeeds
-          - [ ] All browsers install correctly
-          - [ ] Basic functionality works
-          
-          This PR was automatically created by the version check workflow.
-        branch: update-playwright-${{ steps.latest-version.outputs.latest }}
-        base: main
-        delete-branch: true
+          console.log('Triggered Docker build for Playwright version ${{ steps.latest-version.outputs.latest }}');

@@ -1,4 +1,4 @@
-name: Auto-Update Playwright Version
+name: Build New Playwright Version
 
 on:
   schedule:
@@ -7,21 +7,17 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Playwright version to update to (leave empty for latest)'
+        description: 'Playwright version to build (leave empty for latest)'
         required: false
         type: string
 
 jobs:
-  update-version:
+  build-version:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      actions: write
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -38,42 +34,31 @@ jobs:
         echo "target=$TARGET_VERSION" >> $GITHUB_OUTPUT
         echo "Target version: $TARGET_VERSION"
     
-    - name: Update Dockerfile
+    - name: Check if image exists
+      id: image-check
       run: |
-        # No need to update Dockerfile - it uses latest @playwright/test automatically
-        echo "Dockerfile uses latest @playwright/test - no update needed"
+        # Check if image with this version already exists
+        IMAGE_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" \
+          "https://ghcr.io/v2/${{ github.repository }}/manifests/${{ steps.version.outputs.target }}")
+        
+        if [ "$IMAGE_EXISTS" = "200" ]; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Image for version ${{ steps.version.outputs.target }} already exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Image for version ${{ steps.version.outputs.target }} does not exist - build needed"
+        fi
     
-    - name: Update README.md
-      run: |
-        sed -i "s/Playwright v[0-9.]*/Playwright v${{ steps.version.outputs.target }}/g" README.md
-        echo "Updated README.md"
-    
-    - name: Update GitHub Actions workflow
-      run: |
-        # The docker-build.yml now dynamically detects the version, so no update needed
-        echo "docker-build.yml uses dynamic version detection - no update needed"
-    
-    - name: Create Pull Request
-      uses: peter-evans/create-pull-request@v5
+    - name: Trigger Docker build
+      if: steps.image-check.outputs.exists == 'false'
+      uses: actions/github-script@v7
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        commit-message: "Auto-update Playwright to v${{ steps.version.outputs.target }}"
-        title: "Auto-update Playwright to v${{ steps.version.outputs.target }}"
-        body: |
-          ## Automated Playwright Version Update
+        script: |
+          await github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'docker-build.yml',
+            ref: 'main'
+          });
           
-          This PR automatically updates Playwright to v${{ steps.version.outputs.target }}.
-          
-          ### Files Updated
-          - `README.md` - Updated version reference
-          - `Dockerfile` uses latest version automatically
-          
-          ### Next Steps
-          - [ ] Review changes
-          - [ ] Test Docker build
-          - [ ] Merge if everything looks good
-          
-          🤖 This PR was automatically created by the auto-update workflow.
-        branch: auto-update-playwright-${{ steps.version.outputs.target }}
-        base: main
-        delete-branch: true
+          console.log('Triggered Docker build for Playwright version ${{ steps.version.outputs.target }}');
