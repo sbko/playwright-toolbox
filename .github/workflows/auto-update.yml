@@ -1,0 +1,80 @@
+name: Auto-Update Playwright Version
+
+on:
+  schedule:
+    # Run weekly on Mondays at 10 AM UTC
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Playwright version to update to (leave empty for latest)'
+        required: false
+        type: string
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    
+    - name: Determine target version
+      id: version
+      run: |
+        if [ -n "${{ github.event.inputs.version }}" ]; then
+          TARGET_VERSION="${{ github.event.inputs.version }}"
+        else
+          TARGET_VERSION=$(npm view playwright version)
+        fi
+        echo "target=$TARGET_VERSION" >> $GITHUB_OUTPUT
+        echo "Target version: $TARGET_VERSION"
+    
+    - name: Update Dockerfile
+      run: |
+        sed -i "s/playwright@[0-9.]*/playwright@${{ steps.version.outputs.target }}/g" Dockerfile
+        echo "Updated Dockerfile"
+    
+    - name: Update README.md
+      run: |
+        sed -i "s/Playwright v[0-9.]*/Playwright v${{ steps.version.outputs.target }}/g" README.md
+        echo "Updated README.md"
+    
+    - name: Update GitHub Actions workflow
+      run: |
+        sed -i "s/type=raw,value=[0-9.]*,enable/type=raw,value=${{ steps.version.outputs.target }},enable/g" .github/workflows/docker-build.yml
+        echo "Updated docker-build.yml"
+    
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "Auto-update Playwright to v${{ steps.version.outputs.target }}"
+        title: "Auto-update Playwright to v${{ steps.version.outputs.target }}"
+        body: |
+          ## Automated Playwright Version Update
+          
+          This PR automatically updates Playwright to v${{ steps.version.outputs.target }}.
+          
+          ### Files Updated
+          - `Dockerfile` - Updated playwright installation
+          - `README.md` - Updated version reference
+          - `.github/workflows/docker-build.yml` - Updated Docker tag
+          
+          ### Next Steps
+          - [ ] Review changes
+          - [ ] Test Docker build
+          - [ ] Merge if everything looks good
+          
+          🤖 This PR was automatically created by the auto-update workflow.
+        branch: auto-update-playwright-${{ steps.version.outputs.target }}
+        base: main
+        delete-branch: true

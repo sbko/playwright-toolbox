@@ -1,0 +1,73 @@
+name: Check for New Playwright Version
+
+on:
+  schedule:
+    # Run daily at 9 AM UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    
+    - name: Get current Playwright version from Dockerfile
+      id: current-version
+      run: |
+        CURRENT_VERSION=$(grep -o 'playwright@[0-9.]*' Dockerfile | cut -d'@' -f2)
+        echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Get latest Playwright version
+      id: latest-version
+      run: |
+        LATEST_VERSION=$(npm view playwright version)
+        echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Compare versions
+      id: compare
+      run: |
+        if [ "${{ steps.current-version.outputs.current }}" != "${{ steps.latest-version.outputs.latest }}" ]; then
+          echo "update_needed=true" >> $GITHUB_OUTPUT
+          echo "New version available: ${{ steps.latest-version.outputs.latest }} (current: ${{ steps.current-version.outputs.current }})"
+        else
+          echo "update_needed=false" >> $GITHUB_OUTPUT
+          echo "Already on latest version: ${{ steps.current-version.outputs.current }}"
+        fi
+    
+    - name: Create Pull Request
+      if: steps.compare.outputs.update_needed == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "Update Playwright to v${{ steps.latest-version.outputs.latest }}"
+        title: "Update Playwright to v${{ steps.latest-version.outputs.latest }}"
+        body: |
+          ## Playwright Version Update
+          
+          This PR updates Playwright from v${{ steps.current-version.outputs.current }} to v${{ steps.latest-version.outputs.latest }}.
+          
+          ### Changes
+          - Updated Dockerfile to use playwright@${{ steps.latest-version.outputs.latest }}
+          - Updated README.md version reference
+          - Updated Docker image tag in workflow
+          
+          ### Verification
+          - [ ] Docker build succeeds
+          - [ ] All browsers install correctly
+          - [ ] Basic functionality works
+          
+          This PR was automatically created by the version check workflow.
+        branch: update-playwright-${{ steps.latest-version.outputs.latest }}
+        base: main
+        delete-branch: true
