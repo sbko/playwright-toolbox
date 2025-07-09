@@ -22,7 +22,7 @@ jobs:
       id: latest-version
       run: |
         LATEST_VERSION=$(npm view @playwright/test version)
-        echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
+        echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
         echo "Latest Playwright version: $LATEST_VERSION"
     
     - name: Check if image exists
@@ -30,14 +30,14 @@ jobs:
       run: |
         # Check if image with this version already exists
         IMAGE_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" \
-          "https://ghcr.io/v2/${{ github.repository }}/manifests/${{ steps.latest-version.outputs.latest }}")
+          "https://ghcr.io/v2/${{ github.repository }}/manifests/${{ steps.latest-version.outputs.version }}")
         
         if [ "$IMAGE_EXISTS" = "200" ]; then
           echo "exists=true" >> $GITHUB_OUTPUT
-          echo "Image for version ${{ steps.latest-version.outputs.latest }} already exists"
+          echo "Image for version ${{ steps.latest-version.outputs.version }} already exists"
         else
           echo "exists=false" >> $GITHUB_OUTPUT
-          echo "Image for version ${{ steps.latest-version.outputs.latest }} does not exist - build needed"
+          echo "Image for version ${{ steps.latest-version.outputs.version }} does not exist - build needed"
         fi
     
     - name: Trigger Docker build
@@ -52,4 +52,4 @@ jobs:
             ref: 'main'
           });
           
-          console.log('Triggered Docker build for Playwright version ${{ steps.latest-version.outputs.latest }}');
+          console.log('Triggered Docker build for Playwright version ${{ steps.latest-version.outputs.version }}');
