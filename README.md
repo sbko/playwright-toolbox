@@ -16,13 +16,13 @@ This image solves the compatibility issue where Playwright officially supports o
 1. Pull the image from GitHub Container Registry:
 
 ```bash
-podman pull ghcr.io/skbo/playwright-docker:1.53.2
+podman pull ghcr.io/sbko/playwright-toolbox:1.53.2
 ```
 
 2. Create a toolbox container using the Ubuntu-based image:
 
 ```bash
-toolbox create playwright --image ghcr.io/skbo/playwright-docker:1.53.2
+toolbox create playwright --image ghcr.io/sbko/playwright-toolbox:1.53.2
 ```
 
 3. Configure Claude Code MCP to use Playwright through the toolbox:
@@ -47,7 +47,7 @@ claude mcp add playwright -s user -- toolbox run -c playwright npx @playwright/m
 ## Building Locally
 
 ```bash
-docker build -t playwright-docker .
+docker build -t playwright-toolbox .
 ```
 
 ## Automated Builds

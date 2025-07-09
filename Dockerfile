@@ -8,7 +8,9 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install -y nodejs
 
-RUN rm -rf /root/.npm && npm init -y
-RUN npx playwright@latest install-deps
-RUN npx playwright@latest install
-RUN npx playwright install chrome
+WORKDIR /app
+
+RUN npm init -y && \
+    npm install @playwright/test && \
+    npx playwright install-deps && \
+    npx playwright install chrome
