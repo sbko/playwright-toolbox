@@ -22,16 +22,16 @@ jobs:
       with:
         node-version: '22'
     
-    - name: Get current Playwright version from Dockerfile
+    - name: Get current version from README
       id: current-version
       run: |
-        CURRENT_VERSION=$(grep -o 'playwright@[0-9.]*' Dockerfile | cut -d'@' -f2)
+        CURRENT_VERSION=$(grep -o 'Playwright v[0-9.]*' README.md | cut -d'v' -f2)
         echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
     
     - name: Get latest Playwright version
       id: latest-version
       run: |
-        LATEST_VERSION=$(npm view playwright version)
+        LATEST_VERSION=$(npm view @playwright/test version)
         echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
     
     - name: Compare versions
@@ -58,9 +58,8 @@ jobs:
           This PR updates Playwright from v${{ steps.current-version.outputs.current }} to v${{ steps.latest-version.outputs.latest }}.
           
           ### Changes
-          - Updated Dockerfile to use playwright@${{ steps.latest-version.outputs.latest }}
           - Updated README.md version reference
-          - Updated Docker image tag in workflow
+          - Docker image will automatically use latest version on next build
           
           ### Verification
           - [ ] Docker build succeeds

@@ -33,15 +33,15 @@ jobs:
         if [ -n "${{ github.event.inputs.version }}" ]; then
           TARGET_VERSION="${{ github.event.inputs.version }}"
         else
-          TARGET_VERSION=$(npm view playwright version)
+          TARGET_VERSION=$(npm view @playwright/test version)
         fi
         echo "target=$TARGET_VERSION" >> $GITHUB_OUTPUT
         echo "Target version: $TARGET_VERSION"
     
     - name: Update Dockerfile
       run: |
-        sed -i "s/playwright@[0-9.]*/playwright@${{ steps.version.outputs.target }}/g" Dockerfile
-        echo "Updated Dockerfile"
+        # No need to update Dockerfile - it uses latest @playwright/test automatically
+        echo "Dockerfile uses latest @playwright/test - no update needed"
     
     - name: Update README.md
       run: |
@@ -50,8 +50,8 @@ jobs:
     
     - name: Update GitHub Actions workflow
       run: |
-        sed -i "s/type=raw,value=[0-9.]*,enable/type=raw,value=${{ steps.version.outputs.target }},enable/g" .github/workflows/docker-build.yml
-        echo "Updated docker-build.yml"
+        # The docker-build.yml now dynamically detects the version, so no update needed
+        echo "docker-build.yml uses dynamic version detection - no update needed"
     
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v5
@@ -65,9 +65,8 @@ jobs:
           This PR automatically updates Playwright to v${{ steps.version.outputs.target }}.
           
           ### Files Updated
-          - `Dockerfile` - Updated playwright installation
           - `README.md` - Updated version reference
-          - `.github/workflows/docker-build.yml` - Updated Docker tag
+          - `Dockerfile` uses latest version automatically
           
           ### Next Steps
           - [ ] Review changes
