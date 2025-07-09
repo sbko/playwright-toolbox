@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      contents: read
+      packages: read
     
     steps:
     - name: Setup Node.js
@@ -28,11 +30,14 @@ jobs:
     - name: Check if image exists
       id: image-check
       run: |
-        # Check if image with this version already exists
-        IMAGE_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" \
-          "https://ghcr.io/v2/${{ github.repository }}/manifests/${{ steps.latest-version.outputs.version }}")
+        # Check if image with this version already exists using GitHub API
+        IMAGE_EXISTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/user/packages/container/${{ github.event.repository.name }}/versions" \
+          | jq -r --arg version "${{ steps.latest-version.outputs.version }}" \
+          '.[] | select(.metadata.container.tags[] == $version) | .id' | head -1)
         
-        if [ "$IMAGE_EXISTS" = "200" ]; then
+        if [ -n "$IMAGE_EXISTS" ]; then
           echo "exists=true" >> $GITHUB_OUTPUT
           echo "Image for version ${{ steps.latest-version.outputs.version }} already exists"
         else
